@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Cookie Clicker Mejorado</title>
+<style>
+body {
+    font-family: Arial, sans-serif;
+    text-align: center;
+    background: #f9f0d6;
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden;
+    position: relative;
+}
+h1 {
+    margin-top: 20px;
+    color: #d2691e;
+}
+#contador {
+    font-size: 50px;
+    color: #d2691e;
+    margin: 20px 0;
+}
+#cookie {
+    width: 180px;
+    cursor: pointer;
+    transition: transform 0.1s;
+}
+#cookie:active, #cookie.active { transform: scale(0.9); }
+button {
+    font-size: 16px;
+    padding: 8px 15px;
+    margin: 5px;
+    cursor: pointer;
+}
+#info {
+    font-size: 18px;
+    color: #8b4513;
+    margin: 10px 0;
+}
+.goldenCookie, .miniGolden {
+    position: absolute;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.5s;
+}
+.goldenCookie { width: 110px; }
+.miniGolden { width: 90px; }
+.plus {
+    position: absolute;
+    font-size: 24px;
+    font-weight: bold;
+    color: #ffcc00;
+    text-shadow: 1px 1px 3px #000;
+    opacity: 1;
+    transition: all 1s ease-out;
+    pointer-events: none;
+}
+#minijuego {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: #ffd700;
+    color: #8b4513;
+    font-size: 20px;
+    font-weight: bold;
+    padding: 10px 20px;
+    border-radius: 10px;
+    box-shadow: 0 0 10px #ffb700;
+    display: none;
+    z-index: 1000;
+}
+</style>
+</head>
+<body>
+<h1>Cookie Clicker</h1>
+<img src="cookie.png" id="cookie" alt="Cookie">
+<div id="contador">0</div>
+<div id="info">CPS: 0 | Dinero por click: 1</div>
+
+<div id="mejoras">
+    <button id="mejora1">Comprar Mejora (+1 por click) - 50 galletas (Tienes: 0)</button>
+    <button id="mejoraAbuela">Comprar Abuela (+5 cps) - 100 galletas (Tienes: 0)</button>
+    <button id="mejora2">Comprar Horno (+5 cps) - 200 galletas (Tienes: 0)</button>
+    <button id="mejora3">Comprar Fábrica (+20 cps) - 1000 galletas (Tienes: 0)</button>
+    <button id="granja">Comprar Granja (x2 dinero por click) - 1000 galletas (Tienes: 0)</button>
+    <button id="mejora4">Comprar Laboratorio (+50 cps) - 5000 galletas (Tienes: 0)</button>
+    <button id="mejora5">Comprar Ciudad (+200 cps) - 20000 galletas (Tienes: 0)</button>
+</div>
+
+<button id="reset">Resetear Progreso</button>
+<div id="minijuego"></div>
+
+<audio id="clickSound" src="https://www.soundjay.com/button/sounds/button-16.mp3"></audio>
+<audio id="goldSound" src="https://www.soundjay.com/button/sounds/button-10.mp3"></audio>
+
+<script>
+let numero = +localStorage.getItem('contador') || 0;
+let baseClick = +localStorage.getItem('baseClick') || 1;
+let cps = +localStorage.getItem('cps') || 0;
+let precios = JSON.parse(localStorage.getItem('precios')) || [50,200,1000,5000,20000];
+let cantidades = JSON.parse(localStorage.getItem('cantidades')) || [0,0,0,0,0];
+let precioAbuela = +localStorage.getItem('precioAbuela') || 100;
+let cantidadAbuela = +localStorage.getItem('cantidadAbuela') || 0;
+let precioGranja = +localStorage.getItem('precioGranja') || 1000;
+let cantidadGranja = +localStorage.getItem('cantidadGranja') || 0;
+
+const contador = document.getElementById("contador");
+const info = document.getElementById("info");
+const cookie = document.getElementById("cookie");
+const clickSound = document.getElementById("clickSound");
+const goldSound = document.getElementById("goldSound");
+const mejora1 = document.getElementById("mejora1");
+const mejora2 = document.getElementById("mejora2");
+const mejora3 = document.getElementById("mejora3");
+const mejora4 = document.getElementById("mejora4");
+const mejora5 = document.getElementById("mejora5");
+const mejoraAbuela = document.getElementById("mejoraAbuela");
+const granja = document.getElementById("granja");
+const resetBtn = document.getElementById("reset");
+const minijuegoDiv = document.getElementById("minijuego");
+
+let multiplicadorTemporal = 1;
+let minijuegoActivo = false;
+let spacePressed = false;
+
+// 🔹 Función para abreviar números
+function abreviarNumero(num){
+    if(num<1000) return num.toString();
+    const suf=["","K","M","B","T"];
+    let i=0;
+    while(num>=1000 && i<suf.length-1){num/=1000;i++;}
+    return num.toFixed(num<10?2:num<100?1:0)+suf[i];
+}
+
+function obtenerMultiplicador(){
+    return baseClick*Math.pow(2,cantidadGranja)*multiplicadorTemporal;
+}
+
+function actualizarContador(){
+    contador.textContent=abreviarNumero(numero);
+    info.textContent=`CPS: ${abreviarNumero(cps*multiplicadorTemporal)} | Dinero por click: ${abreviarNumero(obtenerMultiplicador())}`;
+    localStorage.setItem('contador',numero);
+    localStorage.setItem('baseClick',baseClick);
+    localStorage.setItem('cps',cps);
+    localStorage.setItem('precios',JSON.stringify(precios));
+    localStorage.setItem('cantidades',JSON.stringify(cantidades));
+    localStorage.setItem('precioAbuela',precioAbuela);
+    localStorage.setItem('cantidadAbuela',cantidadAbuela);
+    localStorage.setItem('precioGranja',precioGranja);
+    localStorage.setItem('cantidadGranja',cantidadGranja);
+
+    mejora1.textContent=`Comprar Mejora (+1 por click) - ${abreviarNumero(precios[0])} galletas (Tienes: ${cantidades[0]})`;
+    mejoraAbuela.textContent=`Comprar Abuela (+5 cps) - ${abreviarNumero(precioAbuela)} galletas (Tienes: ${cantidadAbuela})`;
+    mejora2.textContent=`Comprar Horno (+5 cps) - ${abreviarNumero(precios[1])} galletas (Tienes: ${cantidades[1]})`;
+    mejora3.textContent=`Comprar Fábrica (+20 cps) - ${abreviarNumero(precios[2])} galletas (Tienes: ${cantidades[2]})`;
+    granja.textContent=`Comprar Granja (x2 dinero por click) - ${abreviarNumero(precioGranja)} galletas (Tienes: ${cantidadGranja})`;
+    mejora4.textContent=`Comprar Laboratorio (+50 cps) - ${abreviarNumero(precios[3])} galletas (Tienes: ${cantidades[3]})`;
+    mejora5.textContent=`Comprar Ciudad (+200 cps) - ${abreviarNumero(precios[4])} galletas (Tienes: ${cantidades[4]})`;
+}
+
+// Efecto visual +
+function mostrarPlus(x,y,cantidad){
+    const plus=document.createElement("div");
+    plus.className="plus";
+    plus.style.left=x+"px";
+    plus.style.top=y+"px";
+    plus.textContent="+"+abreviarNumero(cantidad);
+    document.body.appendChild(plus);
+    setTimeout(()=>{plus.style.top=(y-50)+"px";plus.style.opacity=0;},50);
+    setTimeout(()=>document.body.removeChild(plus),1050);
+}
+
+function mostrarBonusCentral(cantidad){
+    const plus=document.createElement("div");
+    plus.className="plus";
+    plus.style.left="50%";
+    plus.style.top="50%";
+    plus.style.transform="translate(-50%,-50%)";
+    plus.textContent="+"+abreviarNumero(cantidad);
+    document.body.appendChild(plus);
+    setTimeout(()=>{plus.style.top="40%";plus.style.opacity=0;},100);
+    setTimeout(()=>document.body.removeChild(plus),1500);
+}
+
+// Click principal
+cookie.addEventListener("click",e=>{
+    const valor=obtenerMultiplicador();
+    numero+=valor;
+    clickSound.play();
+    actualizarContador();
+    const rect=cookie.getBoundingClientRect();
+    mostrarPlus(rect.left+rect.width/2,rect.top,valor);
+});
+
+// Espacio
+document.addEventListener("keydown",e=>{
+    if(e.code==="Space"&&!spacePressed){
+        e.preventDefault();
+        spacePressed=true;
+        const valor=obtenerMultiplicador();
+        numero+=valor;
+        clickSound.play();
+        actualizarContador();
+        cookie.classList.add("active");
+        const r=cookie.getBoundingClientRect();
+        mostrarPlus(r.left+r.width/2,r.top,valor);
+        setTimeout(()=>cookie.classList.remove("active"),100);
+    }
+});
+document.addEventListener("keyup",e=>{if(e.code==="Space")spacePressed=false;});
+
+// Mejoras
+function comprarMejora(i,click=0,pcps=0){
+    if(numero>=precios[i]){
+        numero-=precios[i];
+        baseClick+=click;
+        cps+=pcps;
+        cantidades[i]++;
+        precios[i]=Math.floor(precios[i]*1.25);
+        actualizarContador();
+    }else alert("No tienes suficientes galletas");
+}
+mejora1.onclick=()=>comprarMejora(0,1,0);
+mejora2.onclick=()=>comprarMejora(1,0,5);
+mejora3.onclick=()=>comprarMejora(2,0,20);
+mejora4.onclick=()=>comprarMejora(3,0,50);
+mejora5.onclick=()=>comprarMejora(4,0,200);
+mejoraAbuela.onclick=()=>{
+    if(numero>=precioAbuela){
+        numero-=precioAbuela;
+        cps+=5;
+        cantidadAbuela++;
+        precioAbuela=Math.floor(precioAbuela*1.25);
+        actualizarContador();
+    }else alert("No tienes suficientes galletas");
+};
+granja.onclick=()=>{
+    if(numero>=precioGranja){
+        numero-=precioGranja;
+        cantidadGranja++;
+        precioGranja=Math.floor(precioGranja*3);
+        actualizarContador();
+    }else alert("No tienes suficientes galletas");
+};
+
+// Minijuegos
+function iniciarMinijuego(tipo){
+    if(minijuegoActivo)return;
+    minijuegoActivo=true;
+    if(tipo==="x2"){
+        multiplicadorTemporal=2;
+        let t=60;
+        minijuegoDiv.style.display="block";
+        minijuegoDiv.textContent=`🔥 x2 Galletas (${t}s)`;
+        const int=setInterval(()=>{
+            t--;
+            minijuegoDiv.textContent=`🔥 x2 Galletas (${t}s)`;
+            if(t<=0){clearInterval(int);multiplicadorTemporal=1;minijuegoDiv.style.display="none";minijuegoActivo=false;}
+        },1000);
+    }else if(tipo==="lluvia"){
+        minijuegoDiv.style.display="block";
+        minijuegoDiv.textContent="🌧️ ¡Lluvia de Galletas Doradas!";
+        let n=Math.floor(Math.random()*6)+10;
+        for(let i=0;i<n;i++){
+            const mini=document.createElement("img");
+            mini.src="GoldenCookie.png";
+            mini.className="miniGolden";
+            mini.style.top=Math.random()*(window.innerHeight-100)+"px";
+            mini.style.left=Math.random()*(window.innerWidth-100)+"px";
+            document.body.appendChild(mini);
+            setTimeout(()=>mini.style.opacity=1,100);
+            let clicked=false;
+            mini.addEventListener("click",()=>{
+                if(clicked)return;
+                clicked=true;
+                let bonus=Math.ceil(numero*0.10);
+                numero+=bonus;
+                goldSound.play();
+                actualizarContador();
+                const r=mini.getBoundingClientRect();
+                mostrarPlus(r.left,r.top,bonus);
+                mini.style.opacity=0;
+                setTimeout(()=>document.body.removeChild(mini),500);
+            });
+            setTimeout(()=>{mini.style.opacity=0;setTimeout(()=>{if(document.body.contains(mini))document.body.removeChild(mini);},1000);},8000);
+        }
+        setTimeout(()=>{minijuegoDiv.style.display="none";minijuegoActivo=false;},10000);
+    }else if(tipo==="bendicion"){
+        const bonus=Math.floor(numero*0.25);
+        numero+=bonus;
+        goldSound.play();
+        actualizarContador();
+        mostrarBonusCentral(bonus);
+        minijuegoActivo=false;
+    }
+}
+
+// Galleta dorada
+function crearGoldenCookie(){
+    const g=document.createElement("img");
+    g.src="GoldenCookie.png";
+    g.className="goldenCookie";
+    g.style.top=Math.random()*(window.innerHeight-100)+"px";
+    g.style.left=Math.random()*(window.innerWidth-100)+"px";
+    document.body.appendChild(g);
+    setTimeout(()=>g.style.opacity=1,50);
+    let clicked=false;
+    g.addEventListener("click",()=>{
+        if(clicked)return;
+        clicked=true;
+        goldSound.play();
+        const r=Math.random();
+        let tipo=r<0.4?"x2":r<0.8?"lluvia":"bendicion";
+        iniciarMinijuego(tipo);
+        g.style.opacity=0;
+        setTimeout(()=>document.body.removeChild(g),500);
+    });
+    setTimeout(()=>{g.style.opacity=0;setTimeout(()=>{if(document.body.contains(g))document.body.removeChild(g);},1000);},10000);
+}
+
+// Galletas doradas menos frecuentes (30–45s)
+setInterval(()=>crearGoldenCookie(),Math.random()*15000+30000);
+
+// CPS automático con efecto visual +N
+setInterval(() => {
+    if (cps > 0) {
+        const ganancia = cps * multiplicadorTemporal;
+        numero += ganancia;
+        actualizarContador();
+
+        // Efecto visual flotante sobre el contador
+        const rect = contador.getBoundingClientRect();
+        mostrarPlus(rect.left + rect.width / 2, rect.top, ganancia);
+    }
+}, 1000);
+
+
+// Reset
+resetBtn.onclick=()=>{
+    if(confirm("¿Seguro que quieres resetear tu progreso?")){
+        numero=0;baseClick=1;cps=0;
+        precios=[50,200,1000,5000,20000];cantidades=[0,0,0,0,0];
+        precioAbuela=100;cantidadAbuela=0;precioGranja=1000;cantidadGranja=0;
+        localStorage.clear();actualizarContador();
+    }
+};
+
+actualizarContador();
+</script>
+</body>
+</html>
+
